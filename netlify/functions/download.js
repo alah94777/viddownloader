@@ -1,56 +1,56 @@
-// netlify/functions/download.js
-const ytdl = require('@distube/ytdl-core');
-
 exports.handler = async (event, context) => {
-  // Hanya izinkan method POST
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Method Not Allowed" };
   }
 
   try {
     const { url } = JSON.parse(event.body);
-
     if (!url) {
       return { statusCode: 400, body: JSON.stringify({ error: "URL wajib diisi" }) };
     }
 
-    // Deteksi jika input adalah link YouTube
-    if (ytdl.validateURL(url)) {
-      const info = await ytdl.getInfo(url);
-      // Pilih format video + audio yang kualitasnya paling pas
-      const format = ytdl.chooseFormat(info.formats, { quality: 'highestvideo', filter: 'audioandvideo' });
-      
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          title: info.videoDetails.title,
-          downloadUrl: format.url,
-          source: 'YouTube'
-        }),
-      };
-    } 
+    const isYouTube = url.includes('youtube.com') || url.includes('youtu.be');
     
-    // Deteksi jika input adalah link TikTok
-    else if (url.includes('tiktok.com')) {
-      // Catatan: Struktur TikTok sering berubah. Sebagai alternatif tanpa API,
-      // scraping manual atau menggunakan library opensource yang memanfaatkan web-scraping diperlukan.
-      // Di sini kita pakai contoh logic response sukses:
+    // Kita tembak API pihak ketiga yang biasa dipakai bot telegram (Bypass CORS)
+    const res = await fetch(`https://api.tiklydown.eu.org/api/download?url=${encodeURIComponent(url)}`);
+    const data = await res.json();
+
+    // Jika input adalah TikTok
+    if (!isYouTube && data.result) {
       return {
         statusCode: 200,
         body: JSON.stringify({
-          title: "TikTok Video",
-          downloadUrl: "DIRECT_MP4_LINK_HASIL_SCRAPING",
+          title: data.result.title || "Video TikTok",
+          downloadUrl: data.result.video.noWatermark || data.result.video.watermark,
           source: 'TikTok'
         }),
       };
     }
 
-    return { statusCode: 400, body: JSON.stringify({ error: "URL tidak didukung" }) };
+    // Jika yang dimasukkan link YouTube atau API Tiklydown gagal, gunakan fallback serbaguna
+    const fallbackRes = await fetch(`https://api.toolbox.ragan.id/v1/downloader?url=${encodeURIComponent(url)}`);
+    const fallbackData = await fallbackRes.json();
+
+    if (fallbackData.url) {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          title: fallbackData.title || "Unduhan Video",
+          downloadUrl: fallbackData.url,
+          source: isYouTube ? 'YouTube' : 'TikTok'
+        }),
+      };
+    }
+
+    return { 
+      statusCode: 400, 
+      body: JSON.stringify({ error: "Format link tidak didukung atau server tujuan sedang sibuk." }) 
+    };
 
   } catch (error) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
+      body: JSON.stringify({ error: "Terjadi kesalahan internal. Coba beberapa saat lagi." }),
     };
   }
 };
