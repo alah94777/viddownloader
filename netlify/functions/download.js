@@ -1,5 +1,5 @@
 // netlify/functions/download.js
-const ytdl = require('ytdl-core');
+const ytdl = require('@distube/ytdl-core');
 
 exports.handler = async (event, context) => {
   // Hanya izinkan method POST
