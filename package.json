@@ -1,7 +1,5 @@
 {
   "name": "viddownloader",
   "version": "1.0.0",
-  "dependencies": {
-    "@distube/ytdl-core": "latest"
-  }
+  "dependencies": {}
 }
